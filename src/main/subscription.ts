@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/p
 import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { analysisRequests as requests } from './pipeline/mediaJobs'
-import { DEFAULT_SUBSCRIPTION, MAX_SUBSCRIPTION_IMAGES, type SubscriptionSettings } from '@shared/subscription'
+import { DEFAULT_SUBSCRIPTION, MAX_SUBSCRIPTION_IMAGES, transcribesLocally, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
 export class SubscriptionError extends Error {}
@@ -19,7 +19,7 @@ const pending = new Map<string, Promise<unknown>>()
 let reservations: Promise<unknown> = Promise.resolve()
 export function configureSubscription(value: SubscriptionSettings): void { preferences = { ...value } }
 export function usesSubscription(): boolean { return preferences.provider === 'chatgpt' }
-export function usesLocalTranscription(): boolean { return usesSubscription() || preferences.localTranscription }
+export function usesLocalTranscription(): boolean { return transcribesLocally(preferences) }
 
 /** Never let a subscription run inherit an API billing credential/endpoint. */
 export function subscriptionEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

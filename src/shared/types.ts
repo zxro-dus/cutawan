@@ -531,6 +531,12 @@ export interface AppSettings {
    * `subscription.localTranscription` is on.
    */
   openRouterTranscriptionModel: string
+  /** True when a Gemini key is stored (or GEMINI_API_KEY is set). */
+  hasGeminiKey: boolean
+  /** Masked Gemini key for display. Empty string when unset. */
+  geminiKeyMasked: string
+  /** Gemini model id used for clip analysis, e.g. "gemini-3.8-flash". */
+  geminiModel: string
   /**
    * OpenAI-compatible chat base URL (Azure, OpenRouter, Groq, LM Studio,
    * Ollama). Empty string means the OpenAI default, unless OPENAI_BASE_URL
@@ -576,6 +582,9 @@ export interface SettingsUpdate {
   openRouterKey?: string
   openRouterModel?: string
   openRouterTranscriptionModel?: string
+  /** Stored encrypted; an empty string removes the stored key. */
+  geminiKey?: string
+  geminiModel?: string
   openaiBaseUrl?: string
   transcriptionBaseUrl?: string
   encoder?: EncoderPreference

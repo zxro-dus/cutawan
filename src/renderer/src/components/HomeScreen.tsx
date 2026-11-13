@@ -34,6 +34,7 @@ import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
 import { VIDEO_TYPE_OPTIONS } from '@shared/videoType'
 import { isChromiumBrowser } from '@shared/cookies'
 import { isVideoFile } from '@shared/video'
+import { transcribesLocally } from '@shared/subscription'
 
 const COOKIE_BROWSERS: Array<{ value: BrowserCookieSource; label: string }> = [
   { value: '', label: 'No login' },
@@ -307,8 +308,9 @@ function SetupPanel(): React.JSX.Element {
   const needsKey =
     settings !== null &&
     settings.subscription.provider !== 'chatgpt' &&
-    !(settings.subscription.provider === 'openrouter' ? settings.hasOpenRouterKey : settings.hasApiKey) &&
-    !(mode === 'whole-video' && (project.transcript !== null || settings.subscription.localTranscription))
+    !(settings.subscription.provider === 'openrouter' ? settings.hasOpenRouterKey
+      : settings.subscription.provider === 'gemini' ? settings.hasGeminiKey : settings.hasApiKey) &&
+    !(mode === 'whole-video' && (project.transcript !== null || transcribesLocally(settings.subscription)))
   const highlights = highlightClips(project)
 
   return (
@@ -546,7 +548,8 @@ function SetupPanel(): React.JSX.Element {
               onClick={() => setSettingsOpen(true)}
               className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-5 py-3.5 text-sm font-semibold text-amber-400 transition hover:bg-amber-500/25"
             >
-              {settings?.subscription.provider === 'openrouter' ? 'Add your OpenRouter key first' : 'Add your OpenAI API key first'}
+              {settings?.subscription.provider === 'openrouter' ? 'Add your OpenRouter key first'
+                : settings?.subscription.provider === 'gemini' ? 'Add your Gemini API key first' : 'Add your OpenAI API key first'}
             </button>
           ) : (
             <div>

@@ -1,5 +1,6 @@
 import { checkLocalWhisperSetup, checkSubscriptionSetup } from './subscription'
 import { checkOpenRouterKey, listOpenRouterModels } from './openrouter'
+import { checkGeminiConnection } from './gemini'
 import { cancelLocalWhisperInstall, installLocalWhisper, type LocalWhisperModel } from './localWhisper'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
@@ -365,6 +366,7 @@ export function registerIpcHandlers(): void {
 
   handle('settings:checkSubscription', () => checkSubscriptionSetup())
   handle('settings:checkLocalWhisper', () => checkLocalWhisperSetup())
+  handle('gemini:check', () => checkGeminiConnection())
   handle('openrouter:models', (_e, refresh?: boolean) => listOpenRouterModels(refresh === true))
   handle('openrouter:checkKey', (_e, key?: string) => checkOpenRouterKey(key))
   handle('settings:installLocalWhisper', async (event, model: LocalWhisperModel, pythonPath: string) => {

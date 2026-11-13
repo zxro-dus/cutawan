@@ -4,6 +4,7 @@ import { basename } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { analysisRequests } from './mediaJobs'
 import { OPENROUTER_API_BASE } from '@shared/openrouter'
+import { GEMINI_API_BASE } from '@shared/gemini'
 
 /**
  * Minimal OpenAI REST client using Node's built-in fetch, so the app has no
@@ -60,6 +61,7 @@ export function resolveOpenAiApiBase(
 let settingsChatBase: string | undefined
 let settingsTranscriptionBase: string | undefined
 let openRouter = false
+let gemini = false
 let routeCredential: (() => string) | undefined
 
 export function configureOpenAiEndpoints(opts: {
@@ -72,6 +74,12 @@ export function configureOpenAiEndpoints(opts: {
    */
   openRouter?: boolean
   /**
+   * Gemini is its own provider: analysis goes to Google's OpenAI-compatible
+   * endpoint with the Gemini key, and the OpenAI base URL settings and env
+   * vars do not apply. It has no Whisper route, so transcription never uses it.
+   */
+  gemini?: boolean
+  /**
    * Reads the credential the current route uses, at request time. Jobs read
    * their key once at the start while the endpoint is read per request, so a
    * provider switch during a job would otherwise send one vendor's key to the
@@ -82,6 +90,7 @@ export function configureOpenAiEndpoints(opts: {
   settingsChatBase = opts.chatBase?.trim() || undefined
   settingsTranscriptionBase = opts.transcriptionBase?.trim() || undefined
   openRouter = opts.openRouter === true
+  gemini = opts.gemini === true
   routeCredential = opts.credential
 }
 
@@ -98,6 +107,7 @@ function assertKeyMatchesRoute(apiKey: string): void {
 /** Chat completions base (analysis, captions, B-roll, visual scoring). */
 export function chatApiBase(): string {
   if (openRouter) return OPENROUTER_API_BASE
+  if (gemini) return GEMINI_API_BASE
   return resolveOpenAiApiBase(process.env.OPENAI_BASE_URL || settingsChatBase)
 }
 
@@ -108,6 +118,8 @@ export function chatApiBase(): string {
  */
 export function transcriptionApiBase(): string {
   if (openRouter) return OPENROUTER_API_BASE
+  // Never fall through to an OpenAI URL here: the Gemini key must not leave Google.
+  if (gemini) throw new OpenAIError('Gemini cannot transcribe audio. Set up local Whisper in Settings.')
   return resolveOpenAiApiBase(
     process.env.OPENAI_TRANSCRIPTION_BASE_URL ||
       process.env.OPENAI_BASE_URL ||
@@ -190,14 +202,30 @@ export async function withRetries<T>(fn: () => Promise<T>, opts: RetryOptions = 
   throw lastError
 }
 
+type ErrorBody = { error?: { message?: string } }
+
 async function raiseForStatus(res: Response, context: string): Promise<void> {
   if (res.ok) return
   let detail = ''
   try {
-    const body = (await res.json()) as { error?: { message?: string } }
-    detail = body.error?.message ?? ''
+    const parsed = (await res.json()) as ErrorBody | ErrorBody[]
+    // Gemini's compatibility layer sometimes wraps its error in a one-item array.
+    const body = Array.isArray(parsed) ? parsed[0] : parsed
+    detail = body?.error?.message ?? ''
   } catch {
     /* non-JSON error body */
+  }
+  if (gemini) {
+    // Gemini reports a bad key as 400 or 403 as well as 401.
+    if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(detail))) {
+      throw new OpenAIError('Google rejected the Gemini API key. Check it in Settings.', res.status === 400 ? 401 : res.status)
+    }
+    if (res.status === 429) {
+      throw new OpenAIError(`${context} hit Gemini's rate or quota limit. Wait a minute and try again, or check your Gemini quota.`, 429)
+    }
+    if (res.status === 404 && /model/i.test(detail)) {
+      throw new OpenAIError(`Gemini could not find that model. Check the model name in Settings.${detail ? ` (${detail})` : ''}`, 404)
+    }
   }
   if (res.status === 401) {
     throw new OpenAIError('The API rejected the API key. Check it in Settings.', 401)
@@ -384,7 +412,7 @@ export async function chatJSON<T>(
 function looksLikeUnsupportedFormat(err: unknown): boolean {
   if (!(err instanceof OpenAIError) || (err.status !== 400 && err.status !== 422)) return false
   const m = err.message.toLowerCase()
-  return /response_format|json_schema|json_object|strict|not supported|unknown parameter|unrecognized|invalid parameter/.test(
+  return /response_format|json_schema|json_object|strict|not supported|unknown parameter|unknown name|invalid json payload|unrecognized|invalid parameter/.test(
     m
   )
 }

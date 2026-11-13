@@ -32,11 +32,23 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
     finally { setChecking(false) }
   }
   const inputClass = 'mt-1 w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-sm'
+  const localWhisper = <>
+    <label className="block text-xs" htmlFor="api-python-path">Python executable
+      <input id="api-python-path" className={inputClass} value={value.pythonPath} onChange={e => update({ pythonPath: e.target.value })} />
+    </label>
+    <LocalWhisperSetup pythonPath={value.pythonPath} onConfigured={(pythonPath, whisperModelPath) => update({ pythonPath, whisperModelPath })} />
+    <label className="block text-xs" htmlFor="api-whisper-path">Whisper model folder
+      <input id="api-whisper-path" className={inputClass} value={value.whisperModelPath} onChange={e => update({ whisperModelPath: e.target.value })} placeholder="Folder containing model.bin" />
+    </label>
+    <button type="button" onClick={() => void checkLocal()} disabled={checking} className="rounded-lg border border-surface-600 px-3 py-2 text-sm disabled:opacity-50">{checking ? 'Checking…' : 'Save and check local Whisper'}</button>
+    {message && <p role="status" className="text-xs leading-relaxed text-zinc-300">{message}</p>}
+  </>
   return <div className="mb-6 space-y-3">
     <label className="block text-sm font-medium" htmlFor="analysis-provider">AI connection</label>
     <select id="analysis-provider" value={value.provider} onChange={e => update({ provider: e.target.value as Preferences['provider'] })} className={inputClass}>
       <option value="api">OpenAI-compatible API</option>
       <option value="openrouter">OpenRouter</option>
+      <option value="gemini">Google Gemini</option>
       <option value="chatgpt">ChatGPT subscription via Codex (beta)</option>
     </select>
     {value.provider === 'api' && <>
@@ -44,17 +56,11 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
         <input type="checkbox" checked={value.localTranscription} onChange={e => update({ localTranscription: e.target.checked })} />
         Transcribe speech locally with Whisper (analysis still uses the API)
       </label>
-      {value.localTranscription && <>
-        <label className="block text-xs" htmlFor="api-python-path">Python executable
-          <input id="api-python-path" className={inputClass} value={value.pythonPath} onChange={e => update({ pythonPath: e.target.value })} />
-        </label>
-        <LocalWhisperSetup pythonPath={value.pythonPath} onConfigured={(pythonPath, whisperModelPath) => update({ pythonPath, whisperModelPath })} />
-        <label className="block text-xs" htmlFor="api-whisper-path">Whisper model folder
-          <input id="api-whisper-path" className={inputClass} value={value.whisperModelPath} onChange={e => update({ whisperModelPath: e.target.value })} placeholder="Folder containing model.bin" />
-        </label>
-        <button type="button" onClick={() => void checkLocal()} disabled={checking} className="rounded-lg border border-surface-600 px-3 py-2 text-sm disabled:opacity-50">{checking ? 'Checking…' : 'Save and check local Whisper'}</button>
-        {message && <p role="status" className="text-xs leading-relaxed text-zinc-300">{message}</p>}
-      </>}
+      {value.localTranscription && localWhisper}
+    </>}
+    {value.provider === 'gemini' && <>
+      <p className="text-xs leading-relaxed text-zinc-400">Gemini has no speech-to-text route here, so speech is always transcribed on this computer with local Whisper. Set it up below, then add your Gemini key in the next section.</p>
+      {localWhisper}
     </>}
     {value.provider === 'chatgpt' && <>
       <p className="text-xs leading-relaxed text-zinc-400">Use your existing ChatGPT sign-in for analysis, with local Whisper for transcription. Requires Codex CLI, Python with faster-whisper, and a downloaded speech model. Subscription limits apply; no API key is required.</p>

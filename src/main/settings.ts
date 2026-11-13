@@ -17,6 +17,7 @@ import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
 import { DEFAULT_BRAND_COLORS } from '@shared/captionStyles'
 import { normalizeSizeTargetMb } from '@shared/uploadBudget'
 import { chatApiBase, configureOpenAiEndpoints } from './pipeline/openai'
+import { DEFAULT_GEMINI_MODEL } from '@shared/gemini'
 import { DEFAULT_OPENROUTER_MODEL, DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL, isSupportedTranscriptionModel } from '@shared/openrouter'
 
 
@@ -33,6 +34,9 @@ interface StoredSettings {
   openRouterKeyEncrypted: string
   openRouterModel: string
   openRouterTranscriptionModel: string
+  /** Gemini key, encrypted the same way as `apiKeyEncrypted`. */
+  geminiKeyEncrypted: string
+  geminiModel: string
   openaiBaseUrl: string
   transcriptionBaseUrl: string
   encoder: EncoderPreference
@@ -74,6 +78,8 @@ const DEFAULTS: StoredSettings = {
   openRouterKeyEncrypted: '',
   openRouterModel: DEFAULT_OPENROUTER_MODEL,
   openRouterTranscriptionModel: DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL,
+  geminiKeyEncrypted: '',
+  geminiModel: DEFAULT_GEMINI_MODEL,
   openaiBaseUrl: '',
   transcriptionBaseUrl: '',
   encoder: 'auto',
@@ -96,6 +102,7 @@ function applyEndpoints(s: StoredSettings): void {
     chatBase: s.openaiBaseUrl,
     transcriptionBase: s.transcriptionBaseUrl,
     openRouter: s.subscription.provider === 'openrouter',
+    gemini: s.subscription.provider === 'gemini',
     credential: getAnalysisCredential
   })
 }
@@ -179,6 +186,14 @@ export function getApiKey(): string {
   return stored || envKey || ''
 }
 
+export function getGeminiKey(): string {
+  return decryptKey(load().geminiKeyEncrypted) || process.env.GEMINI_API_KEY || ''
+}
+
+export function getGeminiModel(): string {
+  return load().geminiModel
+}
+
 export function getOpenRouterKey(): string {
   return decryptKey(load().openRouterKeyEncrypted) || process.env.OPENROUTER_API_KEY || ''
 }
@@ -189,7 +204,10 @@ function maskKey(key: string): string {
 
 /** What to ask for when the selected provider has no credential. */
 export function missingCredentialName(): string {
-  return load().subscription.provider === 'openrouter' ? 'OpenRouter key' : 'OpenAI API key'
+  const provider = load().subscription.provider
+  if (provider === 'openrouter') return 'OpenRouter key'
+  if (provider === 'gemini') return 'Gemini API key'
+  return 'OpenAI API key'
 }
 
 /** Credential for analysis (and hosted transcription) on the selected provider. */
@@ -197,6 +215,7 @@ export function getAnalysisCredential(): string {
   const provider = load().subscription.provider
   if (provider === 'chatgpt') return 'local-codex-subscription'
   if (provider === 'openrouter') return getOpenRouterKey()
+  if (provider === 'gemini') return getGeminiKey()
   return getApiKey()
 }
 
@@ -205,6 +224,7 @@ export async function getSettings(): Promise<AppSettings> {
   applyEndpoints(s)
   const key = getApiKey()
   const openRouterKey = getOpenRouterKey()
+  const geminiKey = getGeminiKey()
   return {
     setupComplete: s.setupComplete || Boolean(process.env.CUTAWAN_SMOKE && !process.env.CUTAWAN_SMOKE_WIZARD),
     subscription: { ...s.subscription },
@@ -218,6 +238,9 @@ export async function getSettings(): Promise<AppSettings> {
     openRouterKeyMasked: maskKey(openRouterKey),
     openRouterModel: s.openRouterModel,
     openRouterTranscriptionModel: s.openRouterTranscriptionModel,
+    hasGeminiKey: geminiKey.length > 0,
+    geminiKeyMasked: maskKey(geminiKey),
+    geminiModel: s.geminiModel,
     openaiBaseUrl: s.openaiBaseUrl,
     transcriptionBaseUrl: s.transcriptionBaseUrl,
     openaiBaseUrlFromEnv: Boolean(process.env.OPENAI_BASE_URL?.trim()),
@@ -273,10 +296,12 @@ export function getModelPreferences(): {
 } {
   const s = load()
   const openRouter = s.subscription.provider === 'openrouter'
+  const gemini = s.subscription.provider === 'gemini'
   return {
+    // Gemini transcribes locally, so its Whisper model name is never sent anywhere.
     transcriptionModel: openRouter ? s.openRouterTranscriptionModel : s.transcriptionModel,
     transcriptionLanguage: s.transcriptionLanguage,
-    analysisModel: openRouter ? s.openRouterModel : s.analysisModel,
+    analysisModel: openRouter ? s.openRouterModel : gemini ? s.geminiModel : s.analysisModel,
     analysisProviderKey: s.subscription.provider === 'chatgpt'
       ? `chatgpt:${s.subscription.codexModel}:low`
       : `api:${chatApiBase()}`
@@ -306,6 +331,12 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
       throw new Error(`${update.openRouterTranscriptionModel} can't be used for transcription: Cutawan needs word timestamps, which only OpenRouter's Whisper models return.`)
     }
     s.openRouterTranscriptionModel = update.openRouterTranscriptionModel.trim()
+  }
+  if (update.geminiKey !== undefined) {
+    s.geminiKeyEncrypted = encryptKey(update.geminiKey.trim())
+  }
+  if (update.geminiModel !== undefined && update.geminiModel.trim()) {
+    s.geminiModel = update.geminiModel.trim()
   }
   if (update.openaiBaseUrl !== undefined) s.openaiBaseUrl = storedBaseUrl(update.openaiBaseUrl)
   if (update.transcriptionBaseUrl !== undefined) {

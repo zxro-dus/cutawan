@@ -1,5 +1,7 @@
 import SubscriptionSettings from './SubscriptionSettings'
 import OpenRouterSetup, { type OpenRouterChoice } from './OpenRouterSetup'
+import GeminiSetup, { type GeminiChoice } from './GeminiSetup'
+import { DEFAULT_GEMINI_MODEL } from '@shared/gemini'
 import { DEFAULT_OPENROUTER_MODEL, DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL } from '@shared/openrouter'
 import { DEFAULT_SUBSCRIPTION } from '@shared/subscription'
 import { useEffect, useState } from 'react'
@@ -102,6 +104,7 @@ export default function SettingsModal(): React.JSX.Element {
     model: settings?.openRouterModel ?? DEFAULT_OPENROUTER_MODEL,
     transcriptionModel: settings?.openRouterTranscriptionModel ?? DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL
   })
+  const [gemini, setGemini] = useState<GeminiChoice>({ apiKey: '', model: settings?.geminiModel ?? DEFAULT_GEMINI_MODEL })
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState(settings?.openaiBaseUrl ?? '')
   const [transcriptionBaseUrl, setTranscriptionBaseUrl] = useState(
     settings?.transcriptionBaseUrl ?? ''
@@ -125,10 +128,13 @@ export default function SettingsModal(): React.JSX.Element {
         transcriptionBaseUrl,
         openRouterModel: openRouter.model,
         openRouterTranscriptionModel: openRouter.transcriptionModel,
-        ...(openRouter.apiKey.trim() ? { openRouterKey: openRouter.apiKey.trim() } : {})
+        ...(openRouter.apiKey.trim() ? { openRouterKey: openRouter.apiKey.trim() } : {}),
+        geminiModel: gemini.model,
+        ...(gemini.apiKey.trim() ? { geminiKey: gemini.apiKey.trim() } : {})
       })
       setApiKey('')
       setOpenRouter(current => ({ ...current, apiKey: '' }))
+      setGemini(current => ({ ...current, apiKey: '' }))
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     } finally {
@@ -193,6 +199,9 @@ export default function SettingsModal(): React.JSX.Element {
               {subscription.provider === 'openrouter' && <div className="mb-6">
                 <OpenRouterSetup value={openRouter} onChange={patch => setOpenRouter(current => ({ ...current, ...patch }))}
                   subscription={subscription} onSubscriptionChange={patch => setSubscription(current => ({ ...current, ...patch }))} />
+              </div>}
+              {subscription.provider === 'gemini' && <div className="mb-6">
+                <GeminiSetup value={gemini} onChange={patch => setGemini(current => ({ ...current, ...patch }))} onSave={save} />
               </div>}
               {subscription.provider === 'api' && <>
               <div>

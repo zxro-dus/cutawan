@@ -89,6 +89,14 @@ export default function TopBar(): React.JSX.Element {
             {settings.subscription.localTranscription ? 'Add an OpenRouter key to find clips' : 'Add OpenRouter key to get started'}
           </button>
         )}
+        {settings && settings.subscription.provider === 'gemini' && !settings.hasGeminiKey && (
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400 transition hover:bg-amber-500/25"
+          >
+            Add Gemini API key to get started
+          </button>
+        )}
         {settings && settings.subscription.provider === 'api' && !settings.hasApiKey && (
           <button
             onClick={() => setSettingsOpen(true)}

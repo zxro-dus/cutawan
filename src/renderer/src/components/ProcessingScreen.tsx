@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AudioLines, FileAudio, Brain, Image, ImagePlus, Check, Loader2, ScanFace, X } from 'lucide-react'
 import { useStore } from '../store'
 import type { PipelineStage } from '@shared/types'
+import { transcribesLocally } from '@shared/subscription'
 
 interface StageRow {
   id: PipelineStage
@@ -112,7 +113,7 @@ export default function ProcessingScreen(): React.JSX.Element {
         <p className="mt-6 text-center text-xs leading-relaxed text-zinc-600">
           {mode === 'whole-video' ? (
             <>
-              {settings?.subscription.provider === 'chatgpt' || settings?.subscription.localTranscription
+              {settings && transcribesLocally(settings.subscription)
                 ? 'Speech is transcribed locally. '
                 : settings?.subscription.provider === 'openrouter'
                   ? 'Only the audio leaves your machine, for transcription through OpenRouter. '
@@ -125,6 +126,8 @@ export default function ProcessingScreen(): React.JSX.Element {
             <>
               {settings?.subscription.provider === 'chatgpt'
                 ? 'Speech is transcribed locally; transcript text and sampled frames go to Codex for analysis. '
+                : settings?.subscription.provider === 'gemini'
+                  ? 'Speech is transcribed locally; transcript text and sampled frames go to Google Gemini for analysis. '
                 : settings?.subscription.localTranscription
                   ? 'Speech is transcribed locally; analysis uses your configured API. '
                   : settings?.subscription.provider === 'openrouter'
