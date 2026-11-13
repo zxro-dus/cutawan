@@ -339,3 +339,14 @@ Run `npm run screenshots` to build Cutawan and capture the first-run wizard plus
 eight app views with isolated offline demo profiles. See
 [rename notes](docs/rename-plan.md) for existing-install compatibility and
 screenshot details.
+## Credits and Attribution
+
+Cutawan is an open-source project originally developed by [JeremySNR](https://github.com/JeremySNR).
+
+This fork includes additional Gemini AI provider integration and related improvements.
+
+- **Original project:** https://github.com/JeremySNR/cutawan
+- **Original licence:** MIT
+- **Fork modifications:** Gemini AI provider integration
+
+The original MIT licence and copyright notices are retained. All original contributors retain credit for their respective contributions.
